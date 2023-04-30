@@ -18,14 +18,17 @@ public class Pizza {
 
     private String pizzaName;
 
-    private Double pizzaPrice;
+    private Integer pizzaPrice;
+
+    private String pizzaPicture;
 
     public Pizza() {
     }
 
-    public Pizza(String pizzaName, Double pizzaPrice) {
+    public Pizza(String pizzaName, Integer pizzaPrice, String pizzaPicture) {
         this.pizzaName = pizzaName;
         this.pizzaPrice = pizzaPrice;
+        this.pizzaPicture = pizzaPicture;
     }
 
 }

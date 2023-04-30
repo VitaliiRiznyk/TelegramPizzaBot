@@ -8,9 +8,9 @@ import java.util.List;
 
 public interface PizzasButtons {
 
-    List<KeyboardButton> keybordPizzaButtons = List.of(new KeyboardButton("Гавайська"), new KeyboardButton("Італійська")
+    List<KeyboardButton> keyboardPizzaButtons = List.of(new KeyboardButton("Гавайська"), new KeyboardButton("Італійська")
             , new KeyboardButton("М'ясна"), new KeyboardButton("Сирна"));
 
-    ReplyKeyboardMarkup replyPizzaChoice = new ReplyKeyboardMarkup(List.of(new KeyboardRow(keybordPizzaButtons)),
+    ReplyKeyboardMarkup replyPizzaChoice = new ReplyKeyboardMarkup(List.of(new KeyboardRow(keyboardPizzaButtons)),
             true, true, true, "Оберіть піццу", true);
 }

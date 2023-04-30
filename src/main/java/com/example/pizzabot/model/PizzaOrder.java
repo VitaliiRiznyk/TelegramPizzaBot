@@ -7,6 +7,8 @@ import lombok.ToString;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 @Entity
 @Getter
@@ -23,6 +25,8 @@ public class PizzaOrder {
 
     private Long chatId;
 
+    private String pizzasAddress;
+
     private String pizzaIngredient;
 
     @Temporal(TemporalType.TIME)
@@ -32,10 +36,11 @@ public class PizzaOrder {
     public PizzaOrder() {
     }
 
-    public PizzaOrder(Pizza pizza, Long chatId, Date orderTime, String pizzaIngredient) {
+    public PizzaOrder(Pizza pizza, Long chatId, Date orderTime, String pizzasAddress, String pizzaIngredient) {
         this.pizza = pizza;
         this.chatId = chatId;
         this.orderTime = orderTime;
+        this.pizzasAddress = pizzasAddress;
         this.pizzaIngredient = pizzaIngredient;
     }
 

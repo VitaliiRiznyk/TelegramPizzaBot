@@ -18,10 +18,14 @@ public class BotInit {
     @Bean
     CommandLineRunner commandLineRunner() {
         return args -> {
-            pizzaRepository.save(new Pizza("Гавайська", 220.99));
-            pizzaRepository.save(new Pizza("Італійська", 200.00));
-            pizzaRepository.save(new Pizza("М'ясна", 240.58));
-            pizzaRepository.save(new Pizza("Сирна", 185.75));
+            pizzaRepository.save(new Pizza("Гавайська", 220,
+                    "https://upload.wikimedia.org/wikipedia/commons/e/ea/Pizza_with_pineapple.jpg"));
+            pizzaRepository.save(new Pizza("Італійська", 200,
+                    "https://upload.wikimedia.org/wikipedia/commons/c/c8/Pizza_Margherita_stu_spivack.jpg"));
+            pizzaRepository.save(new Pizza("М'ясна", 240,
+                    "https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/NYPizzaPie.jpg/800px-NYPizzaPie.jpg"));
+            pizzaRepository.save(new Pizza("Сирна", 190,
+                    "https://upload.wikimedia.org/wikipedia/commons/a/ae/Cheese_pizza_with_melted_cheese.jpg"));
         };
     }
 

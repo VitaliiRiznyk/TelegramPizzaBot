@@ -8,11 +8,11 @@ import java.util.List;
 
 public interface PizzasAddIngredients {
 
-    List<KeyboardButton> keybordReplyIngredients = List.of(new KeyboardButton("Моцарелла"),
+    List<KeyboardButton> keyboardReplyIngredients = List.of(new KeyboardButton("Моцарелла"),
             new KeyboardButton("Огірочки"), new KeyboardButton("Ананас"),
             new KeyboardButton("Без інгредієнту"));
 
-    ReplyKeyboardMarkup ingredientsKeyboardMarkup = new ReplyKeyboardMarkup(List.of(new KeyboardRow(keybordReplyIngredients)),
+    ReplyKeyboardMarkup ingredientsKeyboardMarkup = new ReplyKeyboardMarkup(List.of(new KeyboardRow(keyboardReplyIngredients)),
             true, true, true, "Введіть інгредієнти", true);
 
 }

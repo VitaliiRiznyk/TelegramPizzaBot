@@ -1,23 +1,29 @@
 package com.example.pizzabot;
 
 import com.example.pizzabot.buttons.PizzasAddIngredients;
+import com.example.pizzabot.buttons.PizzasAddress;
 import com.example.pizzabot.buttons.PizzasButtons;
+import com.example.pizzabot.model.PizzaOrder;
+import com.example.pizzabot.payments.SendPayments;
 import com.example.pizzabot.service.PizzaOrderService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.meta.api.methods.AnswerPreCheckoutQuery;
+import org.telegram.telegrambots.meta.api.methods.invoices.SendInvoice;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
-import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 @Component
 @AllArgsConstructor
-public class BotPizza extends TelegramLongPollingBot implements PizzasButtons, PizzasAddIngredients {
+public class BotPizza extends TelegramLongPollingBot implements PizzasButtons,
+        PizzasAddIngredients, PizzasAddress, SendPayments {
 
     private final PizzaOrderService pizzaOrderService;
+
+    //private PizzaOrder order = new PizzaOrder();
 
     @Override
     public String getBotUsername() {
@@ -32,71 +38,79 @@ public class BotPizza extends TelegramLongPollingBot implements PizzasButtons, P
     @Override
     public void onUpdateReceived(Update update) {
 
+        String message_text = update.getMessage().getText();
+        long chat_id = update.getMessage().getChatId();
+
+        SendMessage message = new SendMessage(String.valueOf(chat_id), "Введіть /start щоб запустити бот");
+
+        if (update.hasPreCheckoutQuery()) {
+            AnswerPreCheckoutQuery answerPreCheckoutQuery = new
+                    AnswerPreCheckoutQuery(update.getPreCheckoutQuery().getId(), true);
+            try {
+                execute(answerPreCheckoutQuery);
+                execute(message);
+            } catch (TelegramApiException e) {
+                e.printStackTrace();
+            }
+        }
+
         if (update.hasMessage() && update.getMessage().hasText()) {
 
-            String message_text = update.getMessage().getText();
-            long chat_id = update.getMessage().getChatId();
-
-            if (message_text.equals("/start")) {
-                initialMessage(chat_id);
-            } else if (BotPizza.keybordPizzaButtons.contains(new KeyboardButton(message_text))) {
-                createNewPizzaOrder(message_text, chat_id);
-            } else if (BotPizza.keybordReplyIngredients.contains(new KeyboardButton(message_text))) {
-                updatePizzaOrder(message_text, chat_id);
+            if (message_text.equals("/start") && !update.hasPreCheckoutQuery()) {
+                message = initialMessage(chat_id); // вибір найближчої піцерії
+                sendMessage(message);
+            } else if (BotPizza.keyboardPizzaAddresses.contains(new KeyboardButton(message_text))) {
+                message = createOrderByAddress(message_text, chat_id); // вибір піцци
+                sendMessage(message);
+            } else if (BotPizza.keyboardPizzaButtons.contains(new KeyboardButton(message_text))) {
+                message = updateOrderByPizza(message_text, chat_id); // запис вибору піцци
+                sendMessage(message);
+            } else if (BotPizza.keyboardReplyIngredients.contains(new KeyboardButton(message_text))) {
+                updateOrderByIngredient(message_text, chat_id); // фінальне повідомлення про вибір користувача
             }
-
         }
     }
 
-    private void initialMessage(Long chat_id) {
-        SendMessage message = new SendMessage();
-        message.setChatId(chat_id);
-        message.setText("Оберіть піццу");
+    private void sendMessage(SendMessage sendMessage) {
+        try {
+            execute(sendMessage);
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private SendMessage initialMessage(Long chat_id) {
+        SendMessage message = new SendMessage(String.valueOf(chat_id), "Оберіть піццерію");
+        message.setReplyMarkup(BotPizza.replyAddresses);
+        return message;
+    }
+
+    private SendMessage createOrderByAddress(String pizzas_address, Long chat_id) {
+        pizzaOrderService.newPizzaOrder(pizzas_address, chat_id);
+        SendMessage message = new SendMessage(String.valueOf(chat_id), "Оберіть піццу");
         message.setReplyMarkup(BotPizza.replyPizzaChoice);
-        try {
-            execute(message);
-        } catch (TelegramApiException e) {
-            e.printStackTrace();
-        }
+        return message;
     }
 
-    private void createNewPizzaOrder(String message_text, Long chat_id) {
-        pizzaOrderService.newPizzaOrder(message_text, chat_id);
-        SendMessage message = new SendMessage();
-        message.setChatId(chat_id);
-        message.setText("Ви обрали " + message_text.toLowerCase() + " піццу, оберіть додатковий інгредієнт");
+    private SendMessage updateOrderByPizza(String message_text, Long chat_id) {
+        pizzaOrderService.updatePizzaOrderByPizza(message_text, chat_id);
+        String replyText = "Ви обрали " + message_text.toLowerCase() + " піццу, оберіть додатковий інгредієнт";
+        SendMessage message = new SendMessage(String.valueOf(chat_id), replyText);
         message.setReplyMarkup(BotPizza.ingredientsKeyboardMarkup);
-
-        try {
-            execute(message);
-        } catch (TelegramApiException e) {
-            e.printStackTrace();
-        }
+        return message;
     }
 
-    private void updatePizzaOrder(String message_text, Long chat_id) {
-        pizzaOrderService.updatePizzaOrderIngredient(message_text.equals("Без інгредієнту") ?
-                " без доп. інгредієнтів" : message_text, chat_id);
-        SendMessage message = new SendMessage();
+    private void updateOrderByIngredient(String message_text, Long chat_id) {
+        pizzaOrderService.updatePizzaOrderIngredient(message_text.equals("Без інгредієнту") ? " без доп. інгредієнтів" : message_text, chat_id);
+        PizzaOrder pizzaOrder = pizzaOrderService.getPizzaOrder(chat_id);
 
-        SendPhoto photo = new SendPhoto();
-        InputFile file = new InputFile("https://www.foodandwine.com/thmb/7A7CYdDEKJUUhNcLSrlZ5N8wbHo=/750x0/filters:no_upscale():max_bytes(150000):strip_icc():format(webp)/mozzarella-pizza-margherita-FT-RECIPE0621-11fa41ceb1a5465d9036a23da87dd3d4.jpg");
-        photo.setPhoto(file);
-        photo.setChatId(chat_id);
-
-        String pizzaName = pizzaOrderService.getPizzaOrder(chat_id).getPizza().getPizzaName();
-        String pizzaIngredient = pizzaOrderService.getPizzaOrder(chat_id).getPizzaIngredient();
-        Double pizzaPrice = pizzaOrderService.getPizzaOrder(chat_id).getPizza().getPizzaPrice();
-        message.setChatId(chat_id);
-        message.setText("Ваш вибір піцца " + pizzaName + " та інгредієнт: " +
-                pizzaIngredient + ". До сплати " + pizzaPrice + " грн.");
+        String choice = pizzaOrder.getPizza().getPizzaName() + " з " + pizzaOrder.getPizzaIngredient();
+        SendInvoice sendInvoice = sendPayments(choice, chat_id, pizzaOrder.getPizza().getPizzaPicture(), pizzaOrder.getPizza().getPizzaPrice());
 
         try {
-            execute(message);
-            execute(photo);
+            execute(sendInvoice);
         } catch (TelegramApiException e) {
             e.printStackTrace();
         }
-
     }
 }
