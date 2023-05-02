@@ -5,6 +5,7 @@ import com.example.pizzabot.model.PizzaOrder;
 import com.example.pizzabot.repository.PizzaOrderRepository;
 import com.example.pizzabot.repository.PizzaRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Calendar;
 import java.util.Date;
@@ -26,7 +27,7 @@ public class PizzaOrderService {
 
     public void newPizzaOrder(String pizzas_address, Long chat_id) {
         pizzaOrderRepository.save(new PizzaOrder(null, chat_id, new Date(Calendar.getInstance().getTimeInMillis()),
-                pizzas_address, null));
+                pizzas_address, null, false));
     }
 
     public void updatePizzaOrderByPizza(String pizzaName, Long chatId) {
@@ -40,11 +41,16 @@ public class PizzaOrderService {
         }
     }
 
+    @Transactional(readOnly = true)
     public PizzaOrder getPizzaOrder(Long chatId) {
         if (chatId != null && pizzaOrderRepository.findByChatId(chatId).isPresent()) {
             return pizzaOrderRepository.findByChatId(chatId).get();
         }
         return null;
+    }
+
+    public void updatePizzaOrderWhenPayed(Long chatId) {
+        pizzaOrderRepository.updateIsPayedByChatId(chatId);
     }
 
 }

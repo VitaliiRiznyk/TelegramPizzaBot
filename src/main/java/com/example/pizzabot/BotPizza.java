@@ -3,16 +3,20 @@ package com.example.pizzabot;
 import com.example.pizzabot.buttons.PizzasAddIngredients;
 import com.example.pizzabot.buttons.PizzasAddress;
 import com.example.pizzabot.buttons.PizzasButtons;
+import com.example.pizzabot.mail_sender.EmailSender;
 import com.example.pizzabot.model.PizzaOrder;
 import com.example.pizzabot.payments.SendPayments;
 import com.example.pizzabot.service.PizzaOrderService;
 import lombok.AllArgsConstructor;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.AnswerPreCheckoutQuery;
 import org.telegram.telegrambots.meta.api.methods.invoices.SendInvoice;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.payments.SuccessfulPayment;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
@@ -21,9 +25,11 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 public class BotPizza extends TelegramLongPollingBot implements PizzasButtons,
         PizzasAddIngredients, PizzasAddress, SendPayments {
 
+    private static final Logger LOGGER = LogManager.getLogger(BotPizza.class);
+
     private final PizzaOrderService pizzaOrderService;
 
-    //private PizzaOrder order = new PizzaOrder();
+    private final EmailSender mailSender;
 
     @Override
     public String getBotUsername() {
@@ -38,23 +44,31 @@ public class BotPizza extends TelegramLongPollingBot implements PizzasButtons,
     @Override
     public void onUpdateReceived(Update update) {
 
-        String message_text = update.getMessage().getText();
-        long chat_id = update.getMessage().getChatId();
-
-        SendMessage message = new SendMessage(String.valueOf(chat_id), "Введіть /start щоб запустити бот");
-
         if (update.hasPreCheckoutQuery()) {
             AnswerPreCheckoutQuery answerPreCheckoutQuery = new
                     AnswerPreCheckoutQuery(update.getPreCheckoutQuery().getId(), true);
+
             try {
                 execute(answerPreCheckoutQuery);
-                execute(message);
             } catch (TelegramApiException e) {
                 e.printStackTrace();
             }
+
+        } else if (update.getMessage().hasSuccessfulPayment()) {
+            Integer orderAmount = update.getMessage().getSuccessfulPayment().getTotalAmount();
+            long chat_id = update.getMessage().getChatId();
+            pizzaOrderService.updatePizzaOrderWhenPayed(chat_id);
+            PizzaOrder pizzaOrder = pizzaOrderService.getPizzaOrder(chat_id);
+            mailSender.sendMessage("Нове замовлення " + pizzaOrder.getPizza().getPizzaName() + " та інгредієнт " + pizzaOrder.getPizzaIngredient() +
+                    " на відділення " + pizzaOrder.getPizzasAddress() + " на оплачену суму " + pizzaOrder.getPizza().getPizzaPrice());
         }
 
         if (update.hasMessage() && update.getMessage().hasText()) {
+
+            SendMessage message;
+
+            String message_text = update.getMessage().getText();
+            long chat_id = update.getMessage().getChatId();
 
             if (message_text.equals("/start") && !update.hasPreCheckoutQuery()) {
                 message = initialMessage(chat_id); // вибір найближчої піцерії
@@ -112,5 +126,6 @@ public class BotPizza extends TelegramLongPollingBot implements PizzasButtons,
         } catch (TelegramApiException e) {
             e.printStackTrace();
         }
+
     }
 }

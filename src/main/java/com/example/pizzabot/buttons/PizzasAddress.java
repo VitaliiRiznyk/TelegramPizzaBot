@@ -8,7 +8,6 @@ import java.util.List;
 
 public interface PizzasAddress {
 
-
     List<KeyboardButton> keyboardPizzaAddresses = List.of(new KeyboardButton("Пітерська 5"),
             new KeyboardButton("Кирилівська 9"), new KeyboardButton("Гната Юри 4"));
 
