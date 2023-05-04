@@ -49,6 +49,10 @@ public class PizzaOrderService {
         return null;
     }
 
+    public void updatePizzaOrderByPhone(String phoneNumber, Long chatId) {
+        pizzaOrderRepository.updateUserPhoneNumberByChatId(phoneNumber, chatId);
+    }
+
     public void updatePizzaOrderWhenPayed(Long chatId) {
         pizzaOrderRepository.updateIsPayedByChatId(chatId);
     }

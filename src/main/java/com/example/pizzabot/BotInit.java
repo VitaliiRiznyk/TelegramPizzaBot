@@ -1,6 +1,7 @@
 package com.example.pizzabot;
 
 import com.example.pizzabot.model.Pizza;
+import com.example.pizzabot.model.PizzaOrder;
 import com.example.pizzabot.repository.PizzaRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
@@ -28,7 +29,6 @@ public class BotInit {
                     "https://upload.wikimedia.org/wikipedia/commons/a/ae/Cheese_pizza_with_melted_cheese.jpg"));
         };
     }
-
     @Autowired
     BotPizza botPizza;
     @Autowired

@@ -16,9 +16,9 @@ import java.util.Optional;
 public interface PizzaOrderRepository extends JpaRepository<PizzaOrder, Long> {
     @Transactional
     @Modifying
-    @Query("update PizzaOrder p set p.isPayed = true where p.chatId = ?1 and p.id=(select max_id from (select max(p.id)" +
-            "as max_id from PizzaOrder p where p.chatId=?1)as subquery)")
-    int updateIsPayedByChatId(@NonNull Long chatId);
+    @Query("update PizzaOrder p set p.userPhoneNumber = ?1 where p.chatId = ?2 and p.id=(select max_id from (select max(p.id)" +
+            "as max_id from PizzaOrder p where p.chatId=?2) as subquery)")
+    int updateUserPhoneNumberByChatId(@Nullable String userPhoneNumber, @NonNull Long chatId);
 
     @Transactional
     @Modifying
@@ -35,5 +35,11 @@ public interface PizzaOrderRepository extends JpaRepository<PizzaOrder, Long> {
     @Transactional
     @Query("select p from PizzaOrder p where p.chatId = ?1 and p.id=(select max (p.id) from PizzaOrder p where p.chatId = ?1)")
     Optional<PizzaOrder> findByChatId(@NonNull Long chatId);
+
+    @Transactional
+    @Modifying
+    @Query("update PizzaOrder p set p.isPayed = true where p.chatId = ?1 and p.id=(select max_id from (select max(p.id)" +
+            "as max_id from PizzaOrder p where p.chatId=?1)as subquery)")
+    int updateIsPayedByChatId(@NonNull Long chatId);
 
 }
