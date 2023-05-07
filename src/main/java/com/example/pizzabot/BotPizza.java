@@ -2,10 +2,11 @@ package com.example.pizzabot;
 
 import com.example.pizzabot.buttons.PizzasButtons;
 import com.example.pizzabot.mail_sender.EmailSender;
+import com.example.pizzabot.model.Pizza;
 import com.example.pizzabot.model.PizzaOrder;
 import com.example.pizzabot.payments.SendPayments;
 import com.example.pizzabot.service.PizzaOrderService;
-import lombok.AllArgsConstructor;
+import com.example.pizzabot.service.PizzaService;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.AnswerPreCheckoutQuery;
@@ -16,17 +17,22 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Component
-@AllArgsConstructor
 public class BotPizza extends TelegramLongPollingBot implements PizzasButtons, SendPayments {
 
-    private List<PizzaOrder> pizzaOrders = new ArrayList<PizzaOrder>(List.of(new PizzaOrder()));
-    private final PizzaOrderService pizzaOrderService;
+    private PizzaOrder pizzaOrder;
 
+    private final PizzaOrderService pizzaOrderService;
     private final EmailSender mailSender;
+    private final PizzaService pizzaService;
+
+    public BotPizza(PizzaOrderService pizzaOrderService, EmailSender mailSender, PizzaService pizzaService) {
+        this.pizzaOrderService = pizzaOrderService;
+        this.mailSender = mailSender;
+        this.pizzaService = pizzaService;
+    }
 
     @Override
     public String getBotUsername() {
@@ -48,8 +54,9 @@ public class BotPizza extends TelegramLongPollingBot implements PizzasButtons, S
             String message_text = update.getMessage().getText();
             long chat_id = update.getMessage().getChatId();
 
-            if (message_text.equals("/start") && !update.hasPreCheckoutQuery()) {
-                message = initialMessage(chat_id, "Вітаю, оберіть найближчу піццерію"); // вибір найближчої піцерії
+            if (message_text.equals("/start") && !update.hasPreCheckoutQuery()) { // вибір найближчої піцерії
+                pizzaOrder = new PizzaOrder();
+                message = initialMessage(chat_id, "Вітаю, оберіть найближчу піццерію");
                 sendMessage(message);
             } else if (message_text.length() > 0 && BotPizza.keyboardPizzaAddresses.contains(new KeyboardButton(message_text))) {
                 message = createOrderByAddress(message_text, chat_id); // вибір піцци
@@ -58,7 +65,8 @@ public class BotPizza extends TelegramLongPollingBot implements PizzasButtons, S
                 message = updateOrderByPizza(message_text, chat_id); // запис вибору піцци
                 sendMessage(message);
             } else if (message_text.length() > 0 && BotPizza.keyboardReplyIngredients.contains(new KeyboardButton(message_text))) {
-                updateOrderByIngredient(message_text, chat_id);  // запис вибору інгредієнту
+                message = updateOrderByIngredient(message_text, chat_id);  // запис вибору інгредієнту
+                sendMessage(message);
             } else if (message_text.length() == 10) {
                 updateOrderByPhoneNumber(message_text, chat_id); // фінальне повідомлення про вибір користувача
             }
@@ -67,17 +75,26 @@ public class BotPizza extends TelegramLongPollingBot implements PizzasButtons, S
     }
 
     private void tryPreCheckout(Update update) {
+
         if (update.hasPreCheckoutQuery()) {
             AnswerPreCheckoutQuery answerPreCheckoutQuery = new
                     AnswerPreCheckoutQuery(update.getPreCheckoutQuery().getId(), true);
             sendMessage(answerPreCheckoutQuery);
+
         } else if (update.getMessage().hasSuccessfulPayment()) {
-            Integer orderAmount = update.getMessage().getSuccessfulPayment().getTotalAmount();
+            Integer orderAmount = pizzaOrder.getPizza().getPizzaPrice();
             long chat_id = update.getMessage().getChatId();
-            pizzaOrderService.updatePizzaOrderWhenPayed(chat_id);
-            PizzaOrder pizzaOrder = pizzaOrderService.getPizzaOrder(chat_id);
-            mailSender.sendMessage("Нове замовлення " + pizzaOrder.getPizza().getPizzaName() + " та інгредієнт " + pizzaOrder.getPizzaIngredient() +
-                    " на відділення " + pizzaOrder.getPizzasAddress() + " на оплачену суму " + orderAmount);
+
+            pizzaOrder.setPayed(true);
+            pizzaOrder.setOrderTime(new Date(Calendar.getInstance().getTimeInMillis()));
+            pizzaOrderService.newPizzaOrder(pizzaOrder);
+            Long id = pizzaOrder.getId();
+            PizzaOrder pizzaOrder = pizzaOrderService.getLastPizzaOrder(id, chat_id);
+
+            mailSender.sendMessage("Нове замовлення " + pizzaOrder.getPizza().getPizzaName() + " та інгредієнт " +
+                    pizzaOrder.getPizzaIngredient() +
+                    " на відділення " + pizzaOrder.getPizzasAddress() + " на оплачену суму " + orderAmount + ". Номер замовника: "
+                    + pizzaOrder.getUserPhoneNumber());
             sendMessage(initialMessage(chat_id, "Для наступного замовлення введіть /start"));
         }
     }
@@ -96,33 +113,34 @@ public class BotPizza extends TelegramLongPollingBot implements PizzasButtons, S
         return message;
     }
 
-    private SendMessage createOrderByAddress(String pizzas_address, Long chat_id) { // створення ордеру за Адресою
-        pizzaOrderService.newPizzaOrder(pizzas_address, chat_id);
+    private SendMessage createOrderByAddress(String pizzas_address, Long chat_id) {// створення ордеру за Адресою
+        pizzaOrder.setPizzasAddress(pizzas_address);
+        pizzaOrder.setChatId(chat_id);
         SendMessage message = new SendMessage(String.valueOf(chat_id), "Оберіть піццу");
         message.setReplyMarkup(BotPizza.replyPizzaChoice);
         return message;
     }
 
-    private SendMessage updateOrderByPizza(String message_text, Long chat_id) { // оновлення ордеру за Піццою
-        pizzaOrderService.updatePizzaOrderByPizza(message_text, chat_id);
-        String replyText = "Ви обрали " + message_text.toLowerCase() + " піццу, оберіть додатковий інгредієнт";
+    private SendMessage updateOrderByPizza(String pizza_name, Long chat_id) { // оновлення ордеру за Піццою
+        Pizza pizza = pizzaService.findByName(pizza_name);
+        pizzaOrder.setPizza(pizza);
+        String replyText = "Ви обрали " + pizza_name.toLowerCase() + " піццу, оберіть додатковий інгредієнт";
         SendMessage message = new SendMessage(String.valueOf(chat_id), replyText);
         message.setReplyMarkup(BotPizza.ingredientsKeyboardMarkup);
         return message;
     }
 
-    private void updateOrderByIngredient(String message_text, Long chat_id) { // оновлення ордеру за Інгредієнтом
-        pizzaOrderService.updatePizzaOrderIngredient(message_text.equals("Без інгредієнту") ? " без доп. інгредієнтів" : message_text, chat_id);
-        sendMessage(initialMessage(chat_id, "Введіть номер телефону без коду країни"));
-
+    private SendMessage updateOrderByIngredient(String ingredient_name, Long chat_id) { // оновлення ордеру за Інгредієнтом
+        pizzaOrder.setPizzaIngredient(ingredient_name.equals("Без інгредієнту") ? "без інгредієнту" : ingredient_name);
+        String replyText = "Введіть номер телефону без коду країни";
+        return new SendMessage(String.valueOf(chat_id), replyText);
     }
 
     private void updateOrderByPhoneNumber(String phoneNumber, Long chat_id) { // оновлення ордеру за номером
-        pizzaOrderService.updatePizzaOrderByPhone(phoneNumber, chat_id);
-        PizzaOrder pizzaOrder = pizzaOrderService.getPizzaOrder(chat_id);
+        pizzaOrder.setUserPhoneNumber(phoneNumber);
         String choice = pizzaOrder.getPizza().getPizzaName() + " з " + pizzaOrder.getPizzaIngredient();
-        SendInvoice sendInvoice = sendPayments(choice, chat_id, pizzaOrder.getPizza().getPizzaPicture(), pizzaOrder.getPizza().getPizzaPrice());
-
+        SendInvoice sendInvoice = sendPayments(choice, chat_id, pizzaOrder.getPizza().getPizzaPicture(),
+                pizzaOrder.getPizza().getPizzaPrice());
         sendMessage(sendInvoice);
     }
 

@@ -1,7 +1,6 @@
 package com.example.pizzabot;
 
 import com.example.pizzabot.model.Pizza;
-import com.example.pizzabot.model.PizzaOrder;
 import com.example.pizzabot.repository.PizzaRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
@@ -16,7 +15,12 @@ import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 @Component
 public class BotInit {
 
-    @Bean
+    @Autowired
+    BotPizza botPizza;
+    @Autowired
+    private PizzaRepository pizzaRepository;
+
+    /*@Bean
     CommandLineRunner commandLineRunner() {
         return args -> {
             pizzaRepository.save(new Pizza("Гавайська", 220,
@@ -28,11 +32,8 @@ public class BotInit {
             pizzaRepository.save(new Pizza("Сирна", 190,
                     "https://upload.wikimedia.org/wikipedia/commons/a/ae/Cheese_pizza_with_melted_cheese.jpg"));
         };
-    }
-    @Autowired
-    BotPizza botPizza;
-    @Autowired
-    private PizzaRepository pizzaRepository;
+    }*/
+
 
     @EventListener({ContextRefreshedEvent.class})
     public void init() throws TelegramApiException {
